@@ -237,14 +237,6 @@
         #download-zip-btn:hover {
             background-color: #000000;
         }
-
-        .footer {
-            margin-top: 60px;
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 13px;
-            padding: 20px 0;
-        }
     </style>
 </head>
 <body>
@@ -276,12 +268,9 @@
             <button id="download-zip-btn">打包下载所有 WebP (ZIP)</button>
         </div>
     </div>
-
-    <div class="footer">
-        <p>&copy; <span id="copyrightYear"></span> ULARCH</p>
-    </div>
 </div>
 
+<script src="../footer/footer.js"></script>
 <script>
     const state = {
         files: [],
@@ -473,7 +462,6 @@
     }
 
     init();
-    document.getElementById('copyrightYear').textContent = new Date().getFullYear();
 </script>
 </body>
 </html>
