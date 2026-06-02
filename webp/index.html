@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量图片转 WebP 工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #1a1a1a;
+            --secondary-color: #6b7280;
+            --accent-color: #3b82f6;
+            --bg-color: #fafafa;
+            --card-bg: #ffffff;
+            --border-color: #e5e5e5;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b7280;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 32px;
+            margin: 0 0 48px 0;
+            letter-spacing: -0.5px;
+        }
+
+        .controls {
+            background: var(--card-bg);
+            padding: 32px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 40px;
+        }
+
+        .control-group {
+            margin-bottom: 24px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 12px;
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 16px;
+            border: 1px dashed var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            background: var(--bg-color);
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        input[type="file"]:hover {
+            border-color: var(--primary-color);
+            background: #f5f5f5;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            accent-color: var(--primary-color);
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .quality-value {
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: 45px;
+            text-align: right;
+            font-size: 14px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            letter-spacing: 0.3px;
+        }
+
+        button:hover {
+            background-color: #000000;
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background-color: var(--border-color);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .image-card {
+            background: var(--card-bg);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .image-card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background-color: #f5f5f5;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-info {
+            padding: 20px;
+            flex-grow: 1;
+        }
+
+        /* 新增：文件名可编辑输入框样式 */
+        .file-name-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            color: var(--text-primary);
+            background: var(--bg-color);
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        .file-name-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background: white;
+        }
+
+        .file-stats {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .download-btn {
+            padding: 10px 16px;
+            font-size: 13px;
+            background-color: var(--accent-color);
+            border-radius: 4px;
+        }
+
+        .download-btn:hover {
+            background-color: #2563eb;
+        }
+
+        .batch-download-section {
+            margin-top: 40px;
+            text-align: center;
+            display: none;
+        }
+
+        #download-zip-btn {
+            background-color: var(--primary-color);
+            width: auto;
+            padding: 16px 48px;
+            min-width: 280px;
+        }
+
+        #download-zip-btn:hover {
+            background-color: #000000;
+        }
+
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 13px;
+            padding: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>图片转 WebP</h1>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="fileInput">选择图片</label>
+            <input type="file" id="fileInput" multiple accept="image/png, image/jpeg, image/jpg">
+        </div>
+
+        <div class="control-group">
+            <label>压缩质量</label>
+            <div class="slider-container">
+                <input type="range" id="qualitySlider" min="0.1" max="1" step="0.1" value="0.8">
+                <span class="quality-value" style="margin-left: 8px;">0.8</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button id="convertBtn" disabled>开始转换</button>
+        </div>
+
+        <div id="resultsArea" class="results-grid"></div>
+
+        <div id="batchArea" class="batch-download-section">
+            <button id="download-zip-btn">打包下载所有 WebP (ZIP)</button>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; <span id="copyrightYear"></span> ULARCH</p>
+    </div>
+</div>
+
+<script>
+    const state = {
+        files: [],
+        convertedResults: [], // { originalName, name, blob, originalSize, newSize, url, customName }
+        quality: 0.8
+    };
+
+    const fileInput = document.getElementById('fileInput');
+    const qualitySlider = document.getElementById('qualitySlider');
+    const qualityDisplay = qualitySlider.nextElementSibling;
+    const convertBtn = document.getElementById('convertBtn');
+    const resultsArea = document.getElementById('resultsArea');
+    const batchArea = document.getElementById('batchArea');
+    const zipBtn = document.getElementById('download-zip-btn');
+
+    function init() {
+        fileInput.addEventListener('change', (e) => {
+            state.files = Array.from(e.target.files);
+            state.convertedResults = [];
+            resultsArea.innerHTML = '';
+            batchArea.style.display = 'none';
+            convertBtn.disabled = state.files.length === 0;
+
+            convertBtn.textContent = state.files.length > 0 ? `转换 ${state.files.length} 张图片` : '开始转换';
+        });
+
+        qualitySlider.addEventListener('input', (e) => {
+            state.quality = parseFloat(e.target.value);
+            qualityDisplay.textContent = state.quality.toFixed(1);
+        });
+
+        convertBtn.addEventListener('click', startConversion);
+        zipBtn.addEventListener('click', downloadZip);
+    }
+
+    async function startConversion() {
+        convertBtn.disabled = true;
+        convertBtn.textContent = '转换中...';
+        resultsArea.innerHTML = '';
+        state.convertedResults = [];
+
+        for (let i = 0; i < state.files.length; i++) {
+            const file = state.files[i];
+            try {
+                const result = await convertSingleFile(file);
+                state.convertedResults.push(result);
+                renderResultCard(result, i);
+            } catch (err) {
+                console.error('转换失败:', file.name, err);
+            }
+        }
+
+        convertBtn.disabled = false;
+        convertBtn.textContent = '重新转换';
+        if (state.convertedResults.length > 0) {
+            batchArea.style.display = 'block';
+        }
+    }
+
+    function convertSingleFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+
+                    canvas.toBlob((blob) => {
+                        if (!blob) {
+                            reject(new Error('WebP encoding not supported'));
+                            return;
+                        }
+
+                        const defaultName = file.name.replace(/\.(png|jpg|jpeg)$/i, '.webp');
+                        resolve({
+                            originalName: file.name,
+                            name: defaultName,          // 保留原始转换名
+                            blob: blob,
+                            originalSize: file.size,
+                            newSize: blob.size,
+                            url: URL.createObjectURL(blob),
+                            customName: defaultName     // 用户可编辑的当前文件名，初始同 name
+                        });
+                    }, 'image/webp', state.quality);
+                };
+
+                img.onerror = reject;
+            };
+
+            reader.onerror = reject;
+        });
+    }
+
+    function renderResultCard(result, index) {
+        const div = document.createElement('div');
+        div.className = 'image-card';
+        const savings = ((1 - result.newSize / result.originalSize) * 100).toFixed(1);
+        const savingsColor = savings > 0 ? '#16a34a' : '#dc2626';
+
+        div.innerHTML = `
+            <img src="${result.url}" class="image-preview" alt="preview">
+            <div class="card-info">
+                <!-- 替换为可编辑的文件名输入框 -->
+                <input
+                    type="text"
+                    class="file-name-input"
+                    value="${escapeHtml(result.customName)}"
+                    data-index="${index}"
+                    title="可修改下载文件名"
+                >
+                <div class="file-stats">
+                    <span>原始：${formatSize(result.originalSize)}</span>
+                    <span>转换后：${formatSize(result.newSize)}</span>
+                </div>
+                <div class="file-stats" style="color: ${savingsColor}; font-weight: 600;">
+                    体积变化：${savings > 0 ? '-' : '+'}${Math.abs(savings)}%
+                </div>
+                <button class="download-btn" onclick="downloadSingle(${index})">下载</button>
+            </div>
+        `;
+
+        // 绑定输入框修改事件
+        const nameInput = div.querySelector('.file-name-input');
+        nameInput.addEventListener('input', function() {
+            const idx = parseInt(this.dataset.index);
+            if (!isNaN(idx) && state.convertedResults[idx]) {
+                state.convertedResults[idx].customName = this.value;
+            }
+        });
+
+        resultsArea.appendChild(div);
+    }
+
+    // 简单转义 HTML 属性，防止 XSS
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    window.downloadSingle = (index) => {
+        const result = state.convertedResults[index];
+        if (!result) return;
+        // 使用自定义文件名，若为空则回退到原始转换名
+        const downloadName = result.customName || result.name;
+        const a = document.createElement('a');
+        a.href = result.url;
+        a.download = downloadName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    async function downloadZip() {
+        zipBtn.textContent = '打包中...';
+        zipBtn.disabled = true;
+
+        const zip = new JSZip();
+        state.convertedResults.forEach(res => {
+            // 同样使用自定义文件名
+            const fileName = res.customName || res.name;
+            zip.file(fileName, res.blob);
+        });
+
+        const content = await zip.generateAsync({type: "blob"});
+        saveAs(content, "webp-images.zip");
+
+        zipBtn.textContent = '打包下载所有 WebP (ZIP)';
+        zipBtn.disabled = false;
+    }
+
+    function formatSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    init();
+    document.getElementById('copyrightYear').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
